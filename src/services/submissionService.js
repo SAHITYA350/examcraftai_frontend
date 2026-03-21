@@ -1,0 +1,66 @@
+import api from './api';
+
+const submissionService = {
+  // Submit answer (text)
+  submitAnswer: async (data) => {
+    const response = await api.post('/submissions', data);
+    return response.data;
+  },
+
+  // Upload answer (file — image/PDF)
+  uploadAnswer: async (formData) => {
+    const response = await api.post('/submissions/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  // Get submission result
+  getResult: async (submissionId) => {
+    const response = await api.get(`/submissions/${submissionId}`);
+    return response.data;
+  },
+
+  // Get all submissions for user
+  getMySubmissions: async (params) => {
+    const response = await api.get('/submissions/my', { params });
+    return response.data;
+  },
+
+  // Get analytics / performance data
+  getAnalytics: async () => {
+    const response = await api.get('/analytics');
+    return response.data;
+  },
+
+  // Get risk prediction
+  getRiskPrediction: async () => {
+    const response = await api.get('/analytics/risk-prediction');
+    return response.data;
+  },
+
+  // Get weak topics
+  getWeakTopics: async () => {
+    const response = await api.get('/analytics/weak-topics');
+    return response.data;
+  },
+
+  // Get recommendations
+  getRecommendations: async () => {
+    const response = await api.get('/analytics/recommendations');
+    return response.data;
+  },
+
+  // Study Plan
+  generateStudyPlan: async (data) => {
+    const response = await api.post('/analytics/generate-study-plan', data || {});
+    return response.data;
+  },
+
+  saveStudyPlan: async (studyPlan) => {
+    const response = await api.post('/analytics/study-plan', { studyPlan });
+    return response.data;
+  },
+};
+
+export default submissionService;
