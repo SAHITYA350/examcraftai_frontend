@@ -134,6 +134,7 @@ export default function UploadMaterial() {
   const [selectedTopics, setSelectedTopics] = useState([]);
   const [customTopic,    setCustomTopic]    = useState('');
   const [topicPrereqs,   setTopicPrereqs]   = useState([]);
+  const [studyNotes,     setStudyNotes]     = useState(null);
   
   const [difficulty,     setDifficulty]     = useState('');
   const [questionCount,  setQuestionCount]  = useState(10); // Number of Questions Default: 10
@@ -351,21 +352,22 @@ export default function UploadMaterial() {
     const topics = selectedTopics.length > 0 ? selectedTopics : (customTopic.trim() ? [customTopic.trim()] : []);
     if (topics.length === 0) return;
     
-    // For prerequisites, we'll just check the first one or a combined list if the backend supports it.
-    // Given the current backend, we'll fetch for the first one for now, or just skip to difficulty for multiple.
-    if (topics.length === 1) {
-      try {
-        const response = await questionService.getPrerequisites(topics[0]);
-        if (response && response.data && response.data.length > 0) {
-          setTopicPrereqs(response.data);
-          setStep(3);
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to fetch prerequisites", err);
-      }
+    setUploading(true);
+    try {
+      const topicString = topics.join(' + ');
+      const response = await questionService.getPrerequisites(topicString);
+      const data = response.data || response;
+      
+      setStudyNotes(data);
+      setTopicPrereqs(data.prerequisites || []);
+      setStep(3);
+    } catch (err) {
+      console.error("Failed to fetch prerequisites", err);
+      // Fallback: Skip to difficulty if AI prerequisite check fails
+      setStep(4);
+    } finally {
+      setUploading(false);
     }
-    setStep(4);
   };
 
   /* ── Step-4 handlers ── */
@@ -802,46 +804,103 @@ export default function UploadMaterial() {
           <motion.div key="s3"
             initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -18 }} transition={{ duration: 0.35 }}
-            className="max-w-lg mx-auto">
+            className="max-w-2xl mx-auto">
 
             <SectionHead
-              badge="Prerequisite Check"
-              badgeIcon={AlertTriangle}
+              badge="Step 3 · AI Guide"
+              badgeIcon={Brain}
               title="Revise Before You Start"
-              subtitle="We recommend reviewing these foundational topics first for the best results" />
+              subtitle={studyNotes?.brief_summary || "We recommend reviewing these key points and foundational topics for the best results"} />
 
-            <div className="glass-card p-4 sm:p-6 mb-5">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-2xl bg-warning/10 flex items-center justify-center mb-4">
-                <AlertTriangle size={24} className="text-warning" />
-              </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold/10 border border-gold/20 mb-5 mx-auto flex justify-center">
-                <span className="text-xs sm:text-sm font-bold text-gold">{selectedTopics.join(' + ')}</span>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+              {/* Key Study Points (Main AI Output) */}
+              <div className="glass-card p-5 sm:p-6 border border-gold/15 bg-gold/5 lg:col-span-2">
+                <div className="flex items-center gap-2 mb-4 border-b border-gold/10 pb-3">
+                  <div className="w-8 h-8 rounded-lg bg-gold/20 flex items-center justify-center">
+                    <Sparkles size={16} className="text-gold" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-silk">AI Quick-Start Guide</h3>
+                    <p className="text-[10px] text-gold/60 uppercase tracking-widest font-black">Key Topics Summary</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {studyNotes?.key_points?.map((point, idx) => (
+                    <motion.div 
+                      key={idx}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 * idx }}
+                      className="flex items-start gap-3 p-3 rounded-xl bg-dark-400/40 border border-white/5"
+                    >
+                      <div className="w-5 h-5 rounded-full bg-gold/10 flex items-center justify-center text-[10px] font-bold text-gold shrink-0 mt-0.5 border border-gold/20">
+                        {idx + 1}
+                      </div>
+                      <p className="text-xs sm:text-sm text-silver-200/90 leading-relaxed font-medium">
+                        {point}
+                      </p>
+                    </motion.div>
+                  )) || (
+                    <div className="py-8 text-center opacity-30">
+                       <Loader2 size={24} className="animate-spin mx-auto mb-2" />
+                       <p className="text-xs">Preparing your study guide...</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <p className="text-xs sm:text-sm font-semibold text-silk mb-4 flex items-center gap-2">
-                <BookOpen size={14} className="text-gold shrink-0" />
-                Before practicing, revise:
-              </p>
-              <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {topicPrereqs.map(p => (
-                  <li key={p} className="flex items-center gap-3 text-[11px] sm:text-sm text-silver-200 bg-white/5 p-2 rounded-lg border border-white/5">
-                    <CheckCircle size={12} className="text-success shrink-0" />
-                    {p}
-                  </li>
-                ))}
-              </ul>
+              {/* Prerequisites Card */}
+              <div className="glass-card p-5 border border-white/8 bg-white/2">
+                <div className="flex items-center gap-2 mb-4">
+                  <AlertTriangle size={15} className="text-warning" />
+                  <h4 className="text-[10px] sm:text-xs font-black text-silver-200/60 uppercase tracking-[0.2em]">Foundations to Revise</h4>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {topicPrereqs.length > 0 ? topicPrereqs.map(p => (
+                    <div key={p} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-warning/5 border border-warning/10 text-[10px] sm:text-xs text-silver-200 font-medium">
+                      <div className="w-1 h-1 rounded-full bg-warning" />
+                      {p}
+                    </div>
+                  )) : (
+                    <p className="text-[10px] text-silver-200/30 italic">No specific prerequisites detected.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Time Estimate Card */}
+              <div className="glass-card p-5 border border-white/8 bg-white/2 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-info/10 flex items-center justify-center border border-info/20">
+                    <Clock size={20} className="text-info" />
+                  </div>
+                  <div>
+                    <h4 className="text-[10px] font-black text-silver-200/40 uppercase tracking-widest">Est. Study Time</h4>
+                    <p className="text-sm sm:text-base font-bold text-silk">{studyNotes?.estimated_revision_time || "15 minutes"}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                   <p className="text-[8px] sm:text-[10px] text-silver-200/20 uppercase font-black mb-1">Difficulty</p>
+                   <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase bg-info/20 text-info border border-info/20">
+                      {studyNotes?.difficulty_level || "Intermediate"}
+                   </span>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
               <button onClick={() => setStep(2)}
-                className="btn-dark flex-1 py-3 flex items-center justify-center gap-2 text-sm">
-                <BookOpen size={14} /> Revise Prerequisites
+                className="btn-dark flex-1 py-3.5 flex items-center justify-center gap-2 text-sm group">
+                <RotateCcw size={14} className="group-hover:rotate-[-45deg] transition-all" /> Change Topics
               </button>
               <button onClick={() => setStep(4)}
-                className="btn-gold flex-1 py-3 flex items-center justify-center gap-2 text-sm">
-                Continue Anyway <ArrowRight size={14} />
+                className="btn-gold flex-1 py-3.5 flex items-center justify-center gap-2 text-sm shadow-lg shadow-gold/20">
+                Proceed to Quiz <ArrowRight size={14} />
               </button>
             </div>
+            <p className="text-center text-[10px] text-silver-200/30 mt-6 uppercase tracking-[0.3em] font-black">
+              Recommended: Read the study guide thoroughly before proceeding
+            </p>
           </motion.div>
         )}
 
