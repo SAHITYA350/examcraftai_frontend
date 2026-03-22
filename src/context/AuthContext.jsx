@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import authService from '../services/authService';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -25,7 +26,7 @@ export const AuthProvider = ({ children }) => {
         try {
           // 1. Wake up the backend (Render free tier) if needed
           try {
-            await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/health`, { timeout: 10000 });
+            await api.get('/health', { timeout: 10000 });
           } catch (pingError) {
             console.warn("Backend wake-up ping failed/timed out, proceeding to verify session.");
           }
